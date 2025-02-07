@@ -27,7 +27,8 @@ def run_flask():
 
 # Load the bot token from environment variables
 TOKEN = os.environ["TOKEN"]
-GROUP_CHAT_ID = int(os.environ["GROUP_CHAT_ID"])  
+GROUP_CHAT_ID = int(os.environ["GROUP_CHAT_ID"])
+DOWNLOAD_DIR = "/tmp/downloads"
 if not TOKEN:
     raise ValueError("No TELEGRAM_BOT_TOKEN environment variable set")
 
@@ -54,8 +55,6 @@ async def get_url(update: Update, _context: ContextTypes.DEFAULT_TYPE):
         response = requests.get(url)
         soup = BeautifulSoup(response.text, "html.parser")
         images = soup.find_all("img")
-
-        DOWNLOAD_DIR = "/tmp/downloads"
 
         if not os.path.exists(DOWNLOAD_DIR):
             os.makedirs(DOWNLOAD_DIR)
