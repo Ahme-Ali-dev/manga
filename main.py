@@ -55,8 +55,11 @@ async def get_url(update: Update, _context: ContextTypes.DEFAULT_TYPE):
         soup = BeautifulSoup(response.text, "html.parser")
         images = soup.find_all("img")
 
-        if not os.path.exists("downloads"):
-            os.makedirs("downloads")
+        DOWNLOAD_DIR = "/tmp/downloads"
+
+        if not os.path.exists(DOWNLOAD_DIR):
+            os.makedirs(DOWNLOAD_DIR)
+
 
         total_images = len(images)
         downloaded_images = 0
@@ -70,7 +73,8 @@ async def get_url(update: Update, _context: ContextTypes.DEFAULT_TYPE):
                 continue
 
             img_url = urljoin(url, src)
-            local_filename = os.path.join("downloads", os.path.basename(src))
+            # Then use DOWNLOAD_DIR instead of "downloads"
+            local_filename = os.path.join(DOWNLOAD_DIR, os.path.basename(src))
 
             try:
                 img_data = requests.get(img_url).content
@@ -111,16 +115,16 @@ async def get_url(update: Update, _context: ContextTypes.DEFAULT_TYPE):
 
 def create_cbz_file():
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_filename = f"manga_{timestamp}.cbz"
+    output_filename = f"/tmp/manga_{timestamp}.cbz"
     with zipfile.ZipFile(output_filename, 'w') as cbz:
-        for filename in os.listdir("downloads"):
-            file_path = os.path.join("downloads", filename)
+        for filename in os.listdir(DOWNLOAD_DIR):
+            file_path = os.path.join(DOWNLOAD_DIR, filename)
             cbz.write(file_path, arcname=filename)
     return output_filename
 
 def cleanup_files(output_filename):
-    for filename in os.listdir("downloads"):
-        file_path = os.path.join("downloads", filename)
+    for filename in os.listdir(DOWNLOAD_DIR):
+        file_path = os.path.join(DOWNLOAD_DIR, filename)
         try:
             if os.path.isfile(file_path) or os.path.islink(file_path):
                 os.unlink(file_path)
