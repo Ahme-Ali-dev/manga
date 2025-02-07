@@ -9,10 +9,25 @@ from PIL import Image  # Pillow library for image processing
 from telegram import Update, InputFile
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 import re
+from flask import Flask
+from threading import Thread
+
+# Setup Flask server
+def run_flask():
+    app = Flask("")
+
+    @app.route("/")
+    def home():  # This function is required by Flask, even if not accessed
+        return "Bot is running"
+
+    try:
+        app.run(host="0.0.0.0", port=8000)
+    except Exception as e:
+        print(f"Failed to start Flask server: {e}")
 
 # Load the bot token from environment variables
-TOKEN = os.getenv("TOKEN")
-GROUP_CHAT_ID = int(os.getenv("GROUP_CHAT_ID"))  
+TOKEN = os.environ["TOKEN"]
+GROUP_CHAT_ID = int(os.environ["GROUP_CHAT_ID"])  
 if not TOKEN:
     raise ValueError("No TELEGRAM_BOT_TOKEN environment variable set")
 
@@ -118,6 +133,10 @@ def cleanup_files(output_filename):
     except Exception as e:
         print(f"Failed to delete {output_filename}: {e}")
 
+# Start the Flask server in a separate thread
+flask_thread = Thread(target=run_flask)
+flask_thread.start()
+
 # Initialize the bot application
 app = ApplicationBuilder().token(TOKEN).build()
 
@@ -125,5 +144,8 @@ app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, get_url))
 
-# Start the bot
-app.run_polling()
+# Start the bot in a separate thread
+def run_bot():
+    app.run_polling()
+
+run_bot()
