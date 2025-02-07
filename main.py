@@ -19,12 +19,12 @@ logging.basicConfig(level=logging.INFO)
 TOKEN = os.environ["TOKEN"]
 GROUP_CHAT_ID = int(os.environ["GROUP_CHAT_ID"])
 # Get the public URL from the environment variable named "WEBHOOK"
-PUBLIC_URL = os.environ["WEBHOOK"]
+PUBLIC_URL = os.environ.get("WEBHOOK")
 if not PUBLIC_URL:
     raise ValueError("WEBHOOK environment variable not set.")
 
-# Use the current working directory (root) for downloads
-DOWNLOAD_DIR = "."
+# Use /tmp as the download directory since Koyeb's root filesystem is read-only
+DOWNLOAD_DIR = "/tmp"
 
 # -------------------------------
 # Telegram Bot Handlers
@@ -99,7 +99,7 @@ async def get_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await status_message.edit_text("Download and CBZ creation completed!")
 
         with open(output_filename, "rb") as cbz_file:
-            await update.message.reply_document(document=InputFile(cbz_file, filename=output_filename))
+            await update.message.reply_document(document=InputFile(cbz_file, filename=os.path.basename(output_filename)))
     except Exception as e:
         await status_message.edit_text(f"An error occurred: {e}")
     finally:
@@ -107,7 +107,7 @@ async def get_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def create_cbz_file():
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_filename = f"manga_{timestamp}.cbz"
+    output_filename = os.path.join(DOWNLOAD_DIR, f"manga_{timestamp}.cbz")
     with zipfile.ZipFile(output_filename, 'w') as cbz:
         for filename in os.listdir(DOWNLOAD_DIR):
             if filename.startswith("downloaded_"):
@@ -117,12 +117,10 @@ def create_cbz_file():
 
 def cleanup_files(output_filename):
     """
-    Delete only the files created during the download process while preserving your code files.
+    Delete files created during the download process from the DOWNLOAD_DIR.
+    Since our code files reside elsewhere, there is no risk here.
     """
-    protected_files = {"main.py", "requirements.txt", os.path.basename(__file__)}
     for filename in os.listdir(DOWNLOAD_DIR):
-        if filename in protected_files:
-            continue
         if filename.startswith("downloaded_") or re.match(r'^manga_\d{8}_\d{6}\.cbz$', filename):
             file_path = os.path.join(DOWNLOAD_DIR, filename)
             try:
@@ -137,12 +135,10 @@ def cleanup_files(output_filename):
 # Setting Up the Bot with Webhooks
 # -------------------------------
 
-# Initialize the Telegram bot application
 app_bot = ApplicationBuilder().token(TOKEN).build()
 app_bot.add_handler(CommandHandler("start", start))
 app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, get_url))
 
-# Set up Flask to handle webhook requests
 app_flask = Flask(__name__)
 
 @app_flask.route('/')
@@ -156,7 +152,7 @@ def webhook_handler():
     return "OK", 200
 
 if __name__ == '__main__':
-    # Construct the full webhook URL using the PUBLIC_URL from the env var
+    # Construct the full webhook URL using PUBLIC_URL from the environment variable
     full_webhook_url = f"{PUBLIC_URL}/webhook"
     app_bot.bot.set_webhook(full_webhook_url)
     port = int(os.environ.get("PORT", 8000))
